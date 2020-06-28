@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# plan9 extension pack
+
+
+dt () {
+    # draw st(1) windows like rio
+    eval "$(crud)"
+
+    : $(( W /= 8 ))
+    : $(( H /= 16 ))
+
+    g="${W}x${H}+${X}+${Y}"
+
+    nohup st -g "$g" -t drawterm -c drawterm >/dev/null 2>&1
+}
+
+mov () {
+    # move windows like rio
+    slw >/dev/null 2>&1
+    eval $(xdotool getmouselocation --shell)
+    tofc centre "$X" "$Y"
+}
+
+res () {
+    # resize windows like rio
+    eval $(crud)
+
+    tofc morph $W $H $X $Y
+}
+
+kw () {
+    # destroy windows like rio
+    tofc killw "$(slw)"
+}
+
+usage () {
+cat << EOF
+tofc p9: plan9 extension pack for tofu
+
+usage: tofc p9 <->[opt]
+    dt      draw st(1) windows like rio
+    mov     move windows like rio
+    res     resize windows like rio
+    kw      destroy windows like rio
+EOF
+}
+
+main () {
+    case $1 in
+        *dt|*drawterm) dt  ;;
+        *mov|*move)    mov ;;
+        *kw|*destroy)  kw  ;;
+        *res|*resize)  res ;;
+        *) usage && exit 1 ;;
+    esac
+}
+
+main "$@"

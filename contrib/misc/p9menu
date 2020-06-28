@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Plan9 style menu
+
+chomp () {
+    tofc eat ch $(slw)
+}
+
+xmenu xmenu << EOF | sh &
+New		tofc p9 dt
+Resize	tofc p9 res
+Move	tofc p9 mov
+Delete	tofc p9 kw
+Eat		chomp
+EOF

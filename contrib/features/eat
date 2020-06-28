@@ -1,0 +1,65 @@
+#!/bin/sh -e
+
+# advanced window hiding extension pack2
+
+log () {
+    printf '%s\n' "tofu: ${0##*/}: $*" | tee "$WM/log"
+}
+
+die () {
+    log "$*"
+    exit 1
+}
+
+usage () {
+cat << EOF
+usage: tofc eat <->opt
+    ch  chomp a window
+    un  unchomp a window
+    l   list window to be unchomped
+chomping a window adds it to the 'stomach',
+which unmaps it.
+unchomping a window removes it from the 'stomach',
+and maps it again.
+the stomach is a file located at $WM/stomach.
+}
+
+chomp () {
+    [ -d "$WM/fs/$wid" ] || die "window does not exist"
+    tofc unmap "$wid"
+    printf '%s\n' "$wid" >> "$WM/stomach"
+}
+
+unchomp () {
+    while read -r l; do
+        ol="$l"
+    done < "$WM/stomach"
+
+    [ -z "$ol" ] && die "stomach empty"
+
+    sed -i '$ d' "$WM/stomach"
+    [ -d "$WM/fs/$l" ] || die "window does not exist"
+    tofc map "$ol"
+}
+
+lchomp () {
+    while read -r l; do
+        ol=$l
+    done < "$WM/stomach"
+
+    [ -z "$ol" ] && die "stomach empty"
+
+    printf '%s\n' "$l"
+}
+
+main () {
+    case $1 in
+        *un) unchomp  ;;
+        *l)  lchomp   ;;
+        *ch) chomp    ;;
+        *usage) usage ;;
+
+    esac
+}
+
+main "$@"
