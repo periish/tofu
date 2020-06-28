@@ -46,4 +46,4 @@ An extension, `ws` is provided to emulate virtual desktop / workspace functional
 
 # Screenshots
 
-[screenshot](demos/1.png)
+![screenshot](demos/1.png)
