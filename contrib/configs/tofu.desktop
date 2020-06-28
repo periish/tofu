@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=tofu
+Comment=Tofu window manager for X11.
+Exec=tofu
+Icon=tofu
+Terminal=false
+StartupNotify=false
+Categories=Application;

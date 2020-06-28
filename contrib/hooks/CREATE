@@ -1,0 +1,10 @@
+#!/bin/sh
+
+tofc query ignored "$1" \
+|| {
+    tofc border_colour 000000 "$1"
+    tofc border_width 1 "$1"
+    tofc focus "$1"
+    # tofc ws hookc "$1"
+    # enable above if you use the ws extension
+}

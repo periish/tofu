@@ -41,8 +41,7 @@ switch_ws () {
 }
 
 remove_win () {
-    rm "$WM/ws/*/$1"
-    tofc unmap "$1"
+    rm $WM/ws/*/$1
 }
 
 add_win () {

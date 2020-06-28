@@ -1,0 +1,8 @@
+#!/bin/sh
+
+tofc query ignored "$1" \
+|| {
+    tofc border_colour 000000 "$1"
+    tofc border_width 1 "$1"
+    tofc focus "$1"
+}

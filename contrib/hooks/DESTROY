@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# tofc ws hookd "$1"
+# enable above if you use the ws extension
