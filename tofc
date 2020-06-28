@@ -1,0 +1,267 @@
+#!/bin/sh -e
+
+# A window controller for Porkbelly.
+
+die () {
+    printf '%s\n' "${0##*/}: $*" >&2
+    exit 1
+}
+
+usage () {
+cat << EOF
+${0##*/}: control windows via x11fs
+
+usage: tofc [opt] args <wid>
+    ev_subscribe    subscribe to the event stream
+    ev_send         send events to the event stream
+    relocate        move a window to coordinates
+    resize          reshape a window to geometry
+    killw           kill a window
+    focus           focus a window
+    shove           move a window by amount
+    stretch         resize a window by amount
+    centre          centre a window on a coordinate
+    swap            swap a window with another
+    map             map a window
+    unmap           unmap a window
+    ignore          ignore(override_redirect) a window
+    unignore        unignore(override_redirect) a window
+    border_colour   set a window's border colour
+    border_width    set a window's border width
+    query           query a window's properties
+Installed extensions
+$(find_exts)
+
+if a wid is not given, the focused window will be used
+extensions override main functions
+EOF
+}
+
+find_exts () {
+    # Find extensions, and print a name for them, and their usage info.
+    for file in "$exts"/*; do
+        i=0
+        while read -r line; do
+            [ "$i" -gt 2 ] && break
+            [ "$i" -eq 2 ] && printf '%-19s %s\n' "    ${file##*/}" "${line#??}"
+            : $(( i = i + 1 ))
+        done < "$file"
+    done
+}
+
+is_int () {
+    c=$1
+    shift 1
+    t=$*
+    set -- ${t%0x????????}
+    [ $# -ne "$c" ] && die "incorrect argument count"
+    for w
+        do printf '%d' "$w" >/dev/null 2>&1 || die "$w: not an integer"
+    done
+}
+
+is_hex () {
+    c=$1
+    shift 1
+    t=$*
+    set -- ${t%0x????????}
+    [ $# -ne "$c" ] && die "incorrect argument count"
+    for w; do
+        case ${w#\#} in
+            [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]) ;;
+            *) die "$w: not a hex code"
+        esac
+    done
+}
+
+ev_subscribe () {
+    [ -f "$WM/event" ] || die "$WM/event doesn't exist"
+    tail -f "$WM/event"
+}
+
+ev_send () {
+    [ -f "$WM/event" ] || die "$WM/event doesn't exist"
+    printf '%s\n' "$*" >> "$WM/event"
+}
+
+# Window manipulation definitions.
+
+
+relocate () {
+    is_int 2 "$@"
+    printf '%s' "$1 $2" > "$WM/fs/$wid/geometry/position"
+    ev_send "RELOCATE $wid"
+}
+
+resize () {
+    is_int 2 "$@"
+    printf '%s' "$1 $2" > "$WM/fs/$wid/geometry/size"
+    ev_send "RESIZE $wid"
+}
+
+killw () {
+    # The kill event is sent first to allow any reactive scripts to act fast.
+    ev_send "KILL $wid"
+    rmdir "$WM/fs/$wid"
+}
+
+focus () {
+    printf '%s' "$wid" > "$WM/fs/focused"
+    ev_send "FOCUS $wid"
+}
+
+shove () {
+    is_int 2 "$@"
+    read -r x y < "$WM/fs/$wid/geometry/position"
+    printf '%s' "$(( x + $1 )) $(( y + $2 ))" > "$WM/fs/$wid/geometry/position"
+    ev_send "SHOVE $wid"
+}
+
+stretch () {
+    is_int 2 "$@"
+    read -r w h < "$WM/fs/$wid/geometry/size"
+    printf '%s' "$(( w + $1 )) $(( h + $2 ))" > "$WM/fs/$wid/geometry/size"
+    ev_send "STRETCH $wid"
+}
+
+centre () {
+    # Centre a window on a set of coordinates.
+    is_int 2 "$@"
+    read -r w h < "$WM/fs/$wid/geometry/size"
+    printf '%s' "$(( $1 - ( w / 2 ))) $(( $2 - ( h / 2 )))" > "$WM/fs/$wid/geometry/position"
+    ev_send "CENTRE $wid"
+}
+
+swap () {
+    [ "$1" ] || die "not enough arguments"
+    [ -d "$WM/fs/$1" ] || die "$1: not a window"
+
+    # We have to get the focused window ourselves.
+    [ "$2" ] || read -r wid < "$WM/fs/focused"
+
+    read -r all1 < "$WM/fs/$1/geometry/all"
+    read -r all2 < "$WM/fs/$wid/geometry/all"
+
+    printf '%s\n' "$all1" > "$WM/fs/$wid/geometry/all"
+    printf '%s\n' "$all2" > "$WM/fs/$1/geometry/all"
+}
+
+morph () {
+    is_int 4 "$@"
+    printf '%s\n' "$1 $2 $3 $4" > "$WM/fs/$wid/geometry/all"
+}
+
+border_colour () {
+    is_hex 1 "$1"
+    printf '%s' "$1" > "$WM/fs/$wid/border/color"
+    ev_send "BORDER_COLOUR $wid"
+}
+
+border_width () {
+    is_int 1 "$@"
+    printf '%s' "$1" > "$WM/fs/$wid/border/width"
+    ev_send "BORDER_WIDTH $wid"
+}
+
+map () {
+	printf '%s\n' "true" > "$WM/fs/$wid/mapped"
+}
+
+unmap () {
+	printf '%s\n' "false" > "$WM/fs/$wid/mapped"
+}
+
+ignore () {
+	printf '%s\n' "true" > "$WM/fs/$wid/mapped"
+}
+
+unignore () {
+	printf '%s\n' "false" > "$WM/fs/$wid/mapped"
+}
+
+query () {
+    case $1 in
+        mapped)  sh "$WM/fs/$wid/mapped"  ;;
+        ignored) sh "$WM/fs/$wid/ignored" ;;
+        x)
+            read -r x < "$WM/fs/$wid/geometry/x"
+            printf '%s\n' "$x"
+            ;;
+        y)
+            read -r y < "$WM/fs/$wid/geometry/y"
+            printf '%s\n' "$y"
+            ;;
+        width)
+            read -r w < "$WM/fs/$wid/geometry/width"
+            printf '%s\n' "$w"
+            ;;
+        height)
+            read -r h < "$WM/fs/$wid/geometry/height"
+            printf '%s\n' "$h"
+            ;;
+        position)
+            read -r pos < "$WM/fs/$wid/geometry/position"
+            printf '%s\n' "$pos"
+            ;;
+        size)
+            read -r size < "$WM/fs/$wid/geometry/size"
+            printf '%s\n' "$size"
+            ;;
+        all)
+            read -r a < "$WM/fs/$wid/geometry/all"
+            printf '%s\n' "$a"
+            ;;
+        *) die "$1: not found" ;;
+    esac
+}
+
+get_wid () {
+    # To make this easy for end users to write extensions and such, we use $wid.
+    # This function sets up $wid.
+    for _wid; do :; done
+    read -r focused < "$WM/fs/focused"
+    case $_wid in
+        0x????????) : ;;
+        *) _wid=$focused ;;
+    esac
+    wid="$_wid"
+    export wid
+}
+
+main () {
+    if [ -d "$XDG_CONFIG_HOME" ]
+        then conf="$XDG_CONFIG_HOME/tofu"
+    else
+        conf="$HOME/.config/tofu"
+    fi
+
+    if [ -z "$WM" ] && [ ! -d "$HOME/.tofu" ]; then
+        mkdir -p "$HOME/.tofu"
+        export WM="$HOME/.tofu"
+    fi
+
+    exts="$conf/extensions"
+
+    opt="$1"
+    [ -z "$opt" ] && usage && exit 0
+    shift 1
+
+    if [ -x "$exts/$opt" ]; then
+        get_wid "$@"
+        "$exts/$opt" "$@"
+
+    elif [ "$(command -V "$opt" 2>&1 )" = "$opt is a shell builtin" ]; then
+        usage
+        die "$opt is a shell builtin"
+
+    elif [ "$(command -v "$opt")" = "$opt" ]; then
+        get_wid "$@"
+        "$opt" "$@"
+
+    else
+        usage
+        die "$opt is not a function or extension."
+    fi
+}
+
+main "$@"
