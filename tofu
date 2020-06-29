@@ -76,9 +76,10 @@ main () {
         *) usage && die "option $1 not found"
     esac
 
-    conf="${XDG_CONFIG_HOME:-$HOME/.config}"
+    : "${XDG_CONFIG_HOME:=$HOME/.config}"
+    conf="$XDG_CONFIG_HOME/tofu"
 
-	trap 'cleanup' KILL INT TERM STOP
+	trap 'cleanup' KILL INT TERM
 
     : "${WM:=$HOME/.tofu}"
     export WM
