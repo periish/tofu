@@ -229,21 +229,12 @@ get_wid () {
 }
 
 main () {
-    if [ -d "$XDG_CONFIG_HOME" ]
-        then conf="$XDG_CONFIG_HOME/tofu"
-    else
-        conf="$HOME/.config/tofu"
-    fi
-
-    if [ -z "$WM" ] && [ ! -d "$HOME/.tofu" ]; then
-        mkdir -p "$HOME/.tofu"
-        export WM="$HOME/.tofu"
-    fi
+    : "${XDG_CONFIG_HOME:=$HOME/.config}" "${WM:=$HOME/.tofu}"
+    conf="$XDG_CONFIG_HOME/tofu"
 
     exts="$conf/extensions"
 
     opt="$1"
-    [ -z "$opt" ] && usage && exit 0
     shift 1
 
     if [ -x "$exts/$opt" ]; then
@@ -258,6 +249,8 @@ main () {
         get_wid "$@"
         "$opt" "$@"
 
+    elif [ -z "$opt" ] || [ "$opt" = help ]; then
+        usage
     else
         usage
         die "$opt is not a function or extension."
