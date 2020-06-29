@@ -18,29 +18,32 @@ usage: ${0##*/} [-hv]
 EOF
 }
 
+cleanup() {
+    fusermount3 -u "$WM/fs" # unmount x11fs
+    "$conf/end" || log "end: couldn't run end hook"
+}
+
 wm_init () {
     # The function responsible for initialising the wm.
 
     :>"$WM/log"
     log "init: start"
 
-	[ -d "$WM/fs" ] && mkdir -p "$WM/fs"
+	mkdir -p "$WM/fs"
 
     x11fs "$WM/fs"
-    :>"$WM/event"
-    if [ -e "$conf/autostart" ]; then
-        [ -x "$conf/autostart" ] || chmod +x "$conf/autostart"
-        "$conf/autostart"
-    else
-        log "init: autostart not found, skipping"
-    fi
 
-    [ -d "$WM/ws" ] || mkdir "$WM/ws"
+    :>"$WM/event"
+
+    "$conf/autostart" || log "init: couldn't run autostart hook"
+
+    mkdir -p "$WM/ws"
     log "init: end"
 }
 
 event_parse () {
     log "main: start"
+
     :>"$WM/event"
 
     tail -f "$WM/event" \
@@ -49,7 +52,9 @@ event_parse () {
         while read -r line
             do class=${class#:}:${line}
         done < "$WM/fs/$wid/class"
+
 		read -r title < "$WM/fs/$wid/title"
+
         [ -x "$conf/hooks/$ev" ] && "$conf/hooks/$ev" "$wid" "$class" "$title"
     done
     log "main: end"
@@ -71,13 +76,13 @@ main () {
         *) usage && die "option $1 not found"
     esac
 
-    if [ -d "$XDG_CONFIG_HOME" ]
-        then conf="$XDG_CONFIG_HOME/tofu"
-    else
-        conf="$HOME/.config/tofu"
-    fi
-	trap "$conf/end" KILL INT TERM
-    [ -z "$WM" ] && WM="$HOME/.tofu"
+    conf="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+	trap 'cleanup' KILL INT TERM STOP
+
+    : "${WM:=$HOME/.tofu}"
+    export WM
+
     mkdir -p "$WM" || die "couldn't create wm directory"
 
     wm_init
