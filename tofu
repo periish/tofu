@@ -3,7 +3,7 @@
 # Window manager
 
 log () {
-    printf '%s\n' "${0##*/}: $*" | tee "$WM/log"
+    printf '%s\n' "${0##*/}: $*" >> "$WM/log"
 }
 
 die () {
@@ -32,10 +32,15 @@ wm_init () {
 	mkdir -p "$WM/fs"
 
     x11fs "$WM/fs"
+    log "init: setup x11fs"
 
     :>"$WM/event"
 
-    "$conf/autostart" || log "init: couldn't run autostart hook"
+    # Attempt to run autostart, autorun and tofurc.
+    "$conf/autostart" \
+    || "$conf/autorun" \
+    || "$conf/tofurc" \
+    || log "init: couldn't run autostart hook"
 
     mkdir -p "$WM/ws"
     log "init: end"
@@ -55,7 +60,7 @@ event_parse () {
 
 		read -r title < "$WM/fs/$wid/title"
 
-        [ -x "$conf/hooks/$ev" ] && "$conf/hooks/$ev" "$wid" "$class" "$title"
+        "$conf/hooks/$ev" "$wid" "$class" "$title" >>"$WM/log" 2>&1 #|| log "main: couldn't execute hook $ev"
     done
     log "main: end"
 }

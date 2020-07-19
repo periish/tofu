@@ -11,6 +11,14 @@ die () {
     exit 1
 }
 
+has_ws () {
+    # compatibility with workspace extension
+    : "${XDG_CONFIG_HOME:=$HOME/.config}"
+    conf="$XDG_CONFIG_HOME/tofu"
+    [ -e "$conf/extensions/ws" ] && return 0
+    return 1
+}
+
 usage () {
 cat << EOF
 usage: tofc eat <->opt
@@ -22,10 +30,12 @@ which unmaps it.
 unchomping a window removes it from the 'stomach',
 and maps it again.
 the stomach is a file located at $WM/stomach.
+EOF
 }
 
 chomp () {
     [ -d "$WM/fs/$wid" ] || die "window does not exist"
+    has_ws && tofc ws hookd "$wid"
     tofc unmap "$wid"
     printf '%s\n' "$wid" >> "$WM/stomach"
 }
@@ -36,7 +46,7 @@ unchomp () {
     done < "$WM/stomach"
 
     [ -z "$ol" ] && die "stomach empty"
-
+    has_ws && tofc ws hookc "$wid"
     sed -i '$ d' "$WM/stomach"
     [ -d "$WM/fs/$l" ] || die "window does not exist"
     tofc map "$ol"

@@ -100,9 +100,8 @@ resize () {
 }
 
 killw () {
-    # The kill event is sent first to allow any reactive scripts to act fast.
-    ev_send "KILL $wid"
     rmdir "$WM/fs/$wid"
+    ev_send "KILL $wid"
 }
 
 focus () {
@@ -144,11 +143,13 @@ swap () {
 
     printf '%s\n' "$all1" > "$WM/fs/$wid/geometry/all"
     printf '%s\n' "$all2" > "$WM/fs/$1/geometry/all"
+
 }
 
 morph () {
     is_int 4 "$@"
     printf '%s\n' "$1 $2 $3 $4" > "$WM/fs/$wid/geometry/all"
+    ev_send "MORPH $wid"
 }
 
 border_colour () {
@@ -164,11 +165,11 @@ border_width () {
 }
 
 map () {
-	printf '%s\n' "true" > "$WM/fs/$wid/mapped"
+	printf '%s\n' "true" > "$WM/fs/$wid/mapped" &
 }
 
 unmap () {
-	printf '%s\n' "false" > "$WM/fs/$wid/mapped"
+	printf '%s\n' "false" > "$WM/fs/$wid/mapped" &
 }
 
 ignore () {
@@ -183,33 +184,12 @@ query () {
     case $1 in
         mapped)  sh "$WM/fs/$wid/mapped"  ;;
         ignored) sh "$WM/fs/$wid/ignored" ;;
-        x)
-            read -r x < "$WM/fs/$wid/geometry/x"
-            printf '%s\n' "$x"
-            ;;
-        y)
-            read -r y < "$WM/fs/$wid/geometry/y"
-            printf '%s\n' "$y"
-            ;;
-        width)
-            read -r w < "$WM/fs/$wid/geometry/width"
-            printf '%s\n' "$w"
-            ;;
-        height)
-            read -r h < "$WM/fs/$wid/geometry/height"
-            printf '%s\n' "$h"
-            ;;
-        position)
-            read -r pos < "$WM/fs/$wid/geometry/position"
-            printf '%s\n' "$pos"
-            ;;
-        size)
-            read -r size < "$WM/fs/$wid/geometry/size"
-            printf '%s\n' "$size"
-            ;;
-        all)
-            read -r a < "$WM/fs/$wid/geometry/all"
+        x|y|width|height|position|size|all)
+            read -r a < "$WM/fs/$wid/geometry/$1"
             printf '%s\n' "$a"
+            ;;
+        title|class)
+            cat "$WM/fs/$wid/$1"
             ;;
         *) die "$1: not found" ;;
     esac
@@ -232,13 +212,14 @@ main () {
     : "${XDG_CONFIG_HOME:=$HOME/.config}" "${WM:=$HOME/.tofu}"
     conf="$XDG_CONFIG_HOME/tofu"
 
-    exts="$conf/extensions"
+    exts="$conf/exts"
 
     opt="$1"
     shift 1
 
     if [ -x "$exts/$opt" ]; then
         get_wid "$@"
+        [ -x "$conf/hooks/pre-$opt" ] && "$conf/hooks/pre-$opt" "$@"
         "$exts/$opt" "$@"
 
     elif [ "$(command -V "$opt" 2>&1 )" = "$opt is a shell builtin" ]; then
@@ -247,6 +228,7 @@ main () {
 
     elif [ "$(command -v "$opt")" = "$opt" ]; then
         get_wid "$@"
+        [ -x "$conf/hooks/pre-$opt" ] && "$conf/hooks/pre-$opt" "$@"
         "$opt" "$@"
 
     elif [ -z "$opt" ] || [ "$opt" = help ]; then
