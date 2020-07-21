@@ -158,6 +158,10 @@ border_colour () {
     ev_send "BORDER_COLOUR $wid"
 }
 
+border_color () {
+    border_colour "$@"
+}
+
 border_width () {
     is_int 1 "$@"
     printf '%s' "$1" > "$WM/fs/$wid/border/width"
